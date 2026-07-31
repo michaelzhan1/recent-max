@@ -1,0 +1,13 @@
+services:
+  generator:
+    build:
+      context: .
+      target: generator
+    depends_on:
+      - server
+  
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server
