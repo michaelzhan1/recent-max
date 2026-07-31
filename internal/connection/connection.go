@@ -17,14 +17,19 @@ func NewTCPListener(port string) (*TCPListener, error) {
 	return &TCPListener{ln: ln}, nil
 }
 
-func (c *TCPListener) AcceptAndHandle(handler func(conn net.Conn) error) error {
+func (c *TCPListener) AcceptAndHandle(handler func(*json.Decoder) error) error {
 	conn, err := c.ln.Accept()
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	return handler(conn)
+	dec := json.NewDecoder(conn)
+	return handler(dec)
+}
+
+func (c *TCPListener) Close() error {
+	return c.ln.Close()
 }
 
 type TCPDialer struct {
@@ -42,4 +47,8 @@ func NewTCPDialer(address string) (*TCPDialer, error) {
 func (d *TCPDialer) Send(v any) error {
 	enc := json.NewEncoder(d.conn)
 	return enc.Encode(v)
+}
+
+func (d *TCPDialer) Close() error {
+	return d.conn.Close()
 }

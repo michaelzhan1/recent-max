@@ -1,10 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
-	"net"
 
 	"github.com/michaelzhan1/recent-max/internal/connection"
+	"github.com/michaelzhan1/recent-max/internal/message"
 )
 
 func main() {
@@ -13,12 +14,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer ln.Close()
 
 	for {
-		err := ln.AcceptAndHandle(func(conn net.Conn) error {
-			// handle the connection here
-			// for example, read data from conn and process it
-			// or send data to conn
+		err := ln.AcceptAndHandle(func(dec *json.Decoder) error {
+			var msg message.Message
+			if err := dec.Decode(&msg); err != nil {
+				return err
+			}
+			log.Printf("Received message: %+v\n", msg)
 			return nil
 		})
 		if err != nil {
