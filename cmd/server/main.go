@@ -3,35 +3,28 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
 	"github.com/michaelzhan1/recent-max/internal/connection"
-	"github.com/michaelzhan1/recent-max/internal/message"
+	"github.com/michaelzhan1/recent-max/internal/generate"
 )
 
 func runTCPServer(ln *connection.TCPListener) {
-	for {
-		err := ln.AcceptAndHandle(func(dec *json.Decoder) error {
-			var msg message.Message
+	err := ln.AcceptAndHandle(func(dec *json.Decoder) error {
+		for {
+			var msg generate.Message
 			if err := dec.Decode(&msg); err != nil {
 				return err
 			}
-			log.Printf("Received message: %+v\n", msg)
-			return nil
-		})
-		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
-				break
-			}
-
-			log.Println("Error handling connection:", err)
+			log.Printf("Value: %.2f, Timestamp: %s\n", msg.Value, msg.Timestamp.Format("2006-01-02 15:04:05"))
 		}
+	})
+	if err != nil {
+		log.Println("Error handling connection:", err)
 	}
 }
 

@@ -1,30 +1,33 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"time"
 
 	"github.com/michaelzhan1/recent-max/internal/connection"
 	"github.com/michaelzhan1/recent-max/internal/generate"
-	"github.com/michaelzhan1/recent-max/internal/message"
 )
 
-func main() {
-	gen := generate.NewGenerator(10.0, 0.5, 1.0)
-	for i := range 10 {
-		newValue := gen.Step()
-		fmt.Printf("Step %d: New Value = %.2f\n", i+1, newValue)
+// sendValue wraps the generator's current value and timestamp and sends it through the dialer
+func sendValue(dialer *connection.TCPDialer, g *generate.Generator) error {
+	msg := generate.Message{
+		Value:     g.Value(),
+		Timestamp: time.Now(),
 	}
+	return dialer.Send(msg)
+}
 
+func main() {
 	dialer, err := connection.NewTCPDialer("server:8081")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer dialer.Close()
 
-	msg := message.Message{
-		Name:    "Generator",
-		Message: fmt.Sprintf("New Value = %.2f", gen.Step()),
+	gen := generate.NewGenerator(10.0, 0.6, 1.0)
+	for {
+		sendValue(dialer, gen)
+		time.Sleep(1 * time.Second)
+		gen.Step()
 	}
-	dialer.Send(msg)
 }
