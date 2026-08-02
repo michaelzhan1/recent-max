@@ -11,7 +11,7 @@ import (
 	"syscall"
 
 	"github.com/michaelzhan1/recent-max/internal/connection"
-	"github.com/michaelzhan1/recent-max/internal/generate"
+	"github.com/michaelzhan1/recent-max/internal/value"
 )
 
 func runTCPServer(ctx context.Context, ln *connection.TCPListener) {
@@ -29,7 +29,7 @@ func runTCPServer(ctx context.Context, ln *connection.TCPListener) {
 
 	err = ln.Handle(conn, func(dec *json.Decoder) error {
 		for {
-			var msg generate.Message
+			var msg value.Message
 			if err := dec.Decode(&msg); err != nil {
 				return err
 			}

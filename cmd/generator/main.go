@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/michaelzhan1/recent-max/internal/connection"
-	"github.com/michaelzhan1/recent-max/internal/generate"
+	"github.com/michaelzhan1/recent-max/internal/value"
+	"github.com/michaelzhan1/recent-max/internal/value/generate"
 )
 
 // sendValue wraps the generator's current value and timestamp and sends it through the dialer
 func sendValue(dialer *connection.TCPDialer, g *generate.Generator) error {
-	msg := generate.Message{
+	msg := value.Message{
 		Value:     g.Value(),
 		Timestamp: time.Now(),
 	}
