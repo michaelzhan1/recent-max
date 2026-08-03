@@ -1,35 +1,31 @@
 package generate
 
-import "math/rand/v2"
+import (
+	"math"
+	"math/rand/v2"
+)
 
 // Generator represents a random walk generator
 type Generator struct {
-	value     float64 // current value
-	incChance float64 // 0 to 1, chance to increment value
-	incAmt    float64 // amount to increment value by
+	value float64 // current value
+	mu    float64 // expected annual return (drift)
+	sigma float64 // annualized volatility (standard deviation)
 }
 
 // NewGenerator returns a new Generator instance with given parameters
-// TODO: normal distribution
-func NewGenerator(initialValue, incChance, incAmt float64) *Generator {
+func NewGenerator(initialValue, mu, sigma float64) *Generator {
 	return &Generator{
-		value:     initialValue,
-		incChance: incChance,
-		incAmt:    incAmt,
+		value: initialValue,
+		mu:    mu,
+		sigma: sigma,
 	}
 }
 
-// Step performs a single step in the random walk, with a floor at 0.
-// It returns the new value after the step.
+// Step performs a single step in geometric Brownian motion and updates the current value
 func (g *Generator) Step() float64 {
-	if rand.Float64() < g.incChance {
-		g.value += g.incAmt
-	} else {
-		g.value -= g.incAmt
-	}
-	if g.value < 0 {
-		g.value = 0
-	}
+	dt := 1.0 / 252.0
+	exp := (g.mu-0.5*g.sigma*g.sigma)*dt + g.sigma*math.Sqrt(dt)*rand.NormFloat64()
+	g.value *= math.Exp(exp)
 	return g.value
 }
 

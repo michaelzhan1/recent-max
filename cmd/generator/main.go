@@ -25,10 +25,11 @@ func main() {
 	}
 	defer dialer.Close()
 
-	gen := generate.NewGenerator(10.0, 0.6, 1.0)
+	gen := generate.NewGenerator(100, 0.08, 0.25)
 	for {
 		sendValue(dialer, gen)
-		time.Sleep(500 * time.Millisecond)
-		gen.Step()
+		time.Sleep(100 * time.Millisecond)
+		val := gen.Step()
+		log.Println("Generated value:", val)
 	}
 }

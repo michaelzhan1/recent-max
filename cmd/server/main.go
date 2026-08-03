@@ -49,7 +49,7 @@ func runTCPServer(ctx context.Context, ln *connection.TCPListener, dq *deque.Val
 }
 
 func logMaxValue(ctx context.Context, dq *deque.ValueDeque) {
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -62,7 +62,7 @@ func logMaxValue(ctx context.Context, dq *deque.ValueDeque) {
 				log.Println("No values in deque.")
 				continue
 			}
-			log.Printf("Current max value in the last 3 seconds: %.2f\n", maxValue.Value)
+			log.Printf("Current max value of last 5 seconds: %.2f\n", maxValue.Value)
 		}
 	}
 }
@@ -86,7 +86,7 @@ func main() {
 	}()
 
 	// deque logic
-	dq := deque.NewValueDeque(3 * time.Second)
+	dq := deque.NewValueDeque(5 * time.Second)
 
 	// waitgroups for connection handling and logging
 	var wg sync.WaitGroup
@@ -95,7 +95,7 @@ func main() {
 		runTCPServer(ctx, ln, dq)
 	})
 	wg.Go(func() {
-		log.Println("Logging max value every 3 seconds.")
+		log.Println("Logging max value every second.")
 		logMaxValue(ctx, dq)
 	})
 
