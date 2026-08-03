@@ -15,19 +15,21 @@ import (
 
 	"github.com/michaelzhan1/recent-max/internal/connection"
 	"github.com/michaelzhan1/recent-max/internal/handler"
+	"github.com/michaelzhan1/recent-max/internal/middleware"
 	"github.com/michaelzhan1/recent-max/internal/value"
 	"github.com/michaelzhan1/recent-max/internal/value/deque"
 )
 
 // runHTTPServer handles incoming messages over HTTP
-func runHTTPServer(ctx context.Context) {
+func runHTTPServer(ctx context.Context, dq *deque.ValueDeque) {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", handler.HelloWorldHandler)
+	mux.HandleFunc("/stream", handler.StreamHandlerFactory(dq))
+	corsMux := middleware.EnableCORS(mux)
 
 	server := &http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: corsMux,
 	}
 
 	go func() {
@@ -81,25 +83,6 @@ func runTCPServer(ctx context.Context, ln *connection.TCPListener, dq *deque.Val
 	}
 }
 
-func logMaxValue(ctx context.Context, dq *deque.ValueDeque) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			maxValue, ok := dq.Peek()
-			if !ok {
-				log.Println("No values in deque.")
-				continue
-			}
-			log.Printf("Current max value of last 5 seconds: %.2f\n", maxValue.Value)
-		}
-	}
-}
-
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -121,19 +104,15 @@ func main() {
 	// deque logic
 	dq := deque.NewValueDeque(5 * time.Second)
 
-	// waitgroups for connection handling and logging
+	// waitgroups for servers
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		log.Println("TCP server is running on port 8081.")
 		runTCPServer(ctx, ln, dq)
 	})
 	wg.Go(func() {
-		log.Println("Logging max value every second.")
-		logMaxValue(ctx, dq)
-	})
-	wg.Go(func() {
 		log.Println("HTTP server is running on port 8080.")
-		runHTTPServer(ctx)
+		runHTTPServer(ctx, dq)
 	})
 
 	<-ctx.Done()

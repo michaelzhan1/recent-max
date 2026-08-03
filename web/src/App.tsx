@@ -1,3 +1,5 @@
+import Stats from "./components/stats";
+
 export default function App() {
-  return <div>Hello, world!</div>;
+  return <Stats />;
 }
