@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -12,9 +14,40 @@ import (
 	"time"
 
 	"github.com/michaelzhan1/recent-max/internal/connection"
+	"github.com/michaelzhan1/recent-max/internal/handler"
 	"github.com/michaelzhan1/recent-max/internal/value"
 	"github.com/michaelzhan1/recent-max/internal/value/deque"
 )
+
+// runHTTPServer handles incoming messages over HTTP
+func runHTTPServer(ctx context.Context) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", handler.HelloWorldHandler)
+
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
+	go func() {
+		<-ctx.Done()
+
+		log.Println("Shutting down HTTP server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // shutdown timeout
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Println("Error shutting down HTTP server:", err)
+		}
+	}()
+
+	err := server.ListenAndServe()
+
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Println("Error starting HTTP server:", err)
+	}
+}
 
 // runTCPServer handles handles incoming messages over TCP
 func runTCPServer(ctx context.Context, ln *connection.TCPListener, dq *deque.ValueDeque) {
@@ -97,6 +130,10 @@ func main() {
 	wg.Go(func() {
 		log.Println("Logging max value every second.")
 		logMaxValue(ctx, dq)
+	})
+	wg.Go(func() {
+		log.Println("HTTP server is running on port 8080.")
+		runHTTPServer(ctx)
 	})
 
 	<-ctx.Done()
