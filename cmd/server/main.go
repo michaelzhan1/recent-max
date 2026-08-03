@@ -14,6 +14,7 @@ import (
 	"github.com/michaelzhan1/recent-max/internal/value"
 )
 
+// runTCPServer handles handles incoming messages over TCP
 func runTCPServer(ctx context.Context, ln *connection.TCPListener) {
 	conn, err := ln.Accept()
 	if err != nil {
