@@ -28,7 +28,7 @@ func main() {
 	gen := generate.NewGenerator(10.0, 0.6, 1.0)
 	for {
 		sendValue(dialer, gen)
-		time.Sleep(1 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 		gen.Step()
 	}
 }

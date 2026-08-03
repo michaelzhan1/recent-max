@@ -10,6 +10,7 @@ type Generator struct {
 }
 
 // NewGenerator returns a new Generator instance with given parameters
+// TODO: normal distribution
 func NewGenerator(initialValue, incChance, incAmt float64) *Generator {
 	return &Generator{
 		value:     initialValue,

@@ -9,13 +9,15 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/michaelzhan1/recent-max/internal/connection"
 	"github.com/michaelzhan1/recent-max/internal/value"
+	"github.com/michaelzhan1/recent-max/internal/value/deque"
 )
 
 // runTCPServer handles handles incoming messages over TCP
-func runTCPServer(ctx context.Context, ln *connection.TCPListener) {
+func runTCPServer(ctx context.Context, ln *connection.TCPListener, dq *deque.ValueDeque) {
 	conn, err := ln.Accept()
 	if err != nil {
 		log.Println("Error accepting connection:", err)
@@ -34,7 +36,7 @@ func runTCPServer(ctx context.Context, ln *connection.TCPListener) {
 			if err := dec.Decode(&msg); err != nil {
 				return err
 			}
-			log.Printf("Value: %.2f, Timestamp: %s\n", msg.Value, msg.Timestamp.Format("2006-01-02 15:04:05"))
+			dq.Push(msg)
 		}
 	})
 	if err != nil {
@@ -43,6 +45,25 @@ func runTCPServer(ctx context.Context, ln *connection.TCPListener) {
 			return
 		}
 		log.Println("Error handling connection:", err)
+	}
+}
+
+func logMaxValue(ctx context.Context, dq *deque.ValueDeque) {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			maxValue, ok := dq.Peek()
+			if !ok {
+				log.Println("No values in deque.")
+				continue
+			}
+			log.Printf("Current max value in the last 3 seconds: %.2f\n", maxValue.Value)
+		}
 	}
 }
 
@@ -64,11 +85,18 @@ func main() {
 		ln.Close() // break any waiting Accept()
 	}()
 
-	// waitgroups for connection handling
+	// deque logic
+	dq := deque.NewValueDeque(3 * time.Second)
+
+	// waitgroups for connection handling and logging
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		log.Println("TCP server is running on port 8081.")
-		runTCPServer(ctx, ln)
+		runTCPServer(ctx, ln, dq)
+	})
+	wg.Go(func() {
+		log.Println("Logging max value every 3 seconds.")
+		logMaxValue(ctx, dq)
 	})
 
 	<-ctx.Done()
