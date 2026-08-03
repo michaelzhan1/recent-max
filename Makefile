@@ -6,7 +6,11 @@ generator:
 
 .PHONY: server
 server:
-	docker compose up --build server\
+	docker compose up --build server
+
+.PHONY: frontend
+frontend:
+	cd web && npm run dev
 
 .PHONY: all
 all:
