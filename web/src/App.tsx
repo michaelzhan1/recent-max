@@ -1,5 +1,9 @@
+import Data from "./components/data";
 import Stats from "./components/stats";
 
 export default function App() {
-  return <Stats />;
+  return <div>
+    <Stats />
+    <Data />
+  </div>
 }

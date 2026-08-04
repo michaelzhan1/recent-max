@@ -21,10 +21,11 @@ import (
 )
 
 // runHTTPServer handles incoming messages over HTTP
-func runHTTPServer(ctx context.Context, dq *deque.ValueDeque) {
+func runHTTPServer(ctx context.Context, dq *deque.ValueDeque, dataChan chan value.Message) {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/stream", handler.StreamHandlerFactory(dq))
+	mux.HandleFunc("/stream/data", handler.DataStreamHandlerFactory(dataChan))
+	mux.HandleFunc("/stream/stats", handler.StatStreamHandlerFactory(dq))
 	corsMux := middleware.EnableCORS(mux)
 
 	server := &http.Server{
@@ -52,7 +53,7 @@ func runHTTPServer(ctx context.Context, dq *deque.ValueDeque) {
 }
 
 // runTCPServer handles handles incoming messages over TCP
-func runTCPServer(ctx context.Context, ln *connection.TCPListener, dq *deque.ValueDeque) {
+func runTCPServer(ctx context.Context, ln *connection.TCPListener, dq *deque.ValueDeque, dataChan chan value.Message) {
 	conn, err := ln.Accept()
 	if err != nil {
 		log.Println("Error accepting connection:", err)
@@ -71,6 +72,7 @@ func runTCPServer(ctx context.Context, ln *connection.TCPListener, dq *deque.Val
 			if err := dec.Decode(&msg); err != nil {
 				return err
 			}
+			dataChan <- msg
 			dq.Push(msg)
 		}
 	})
@@ -104,15 +106,18 @@ func main() {
 	// deque logic
 	dq := deque.NewValueDeque(5 * time.Second)
 
+	// data channel logic
+	dataChan := make(chan value.Message)
+
 	// waitgroups for servers
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		log.Println("TCP server is running on port 8081.")
-		runTCPServer(ctx, ln, dq)
+		runTCPServer(ctx, ln, dq, dataChan)
 	})
 	wg.Go(func() {
 		log.Println("HTTP server is running on port 8080.")
-		runHTTPServer(ctx, dq)
+		runHTTPServer(ctx, dq, dataChan)
 	})
 
 	<-ctx.Done()

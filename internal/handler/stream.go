@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/michaelzhan1/recent-max/internal/value"
 	"github.com/michaelzhan1/recent-max/internal/value/deque"
 )
 
-func StreamHandlerFactory(dq *deque.ValueDeque) http.HandlerFunc {
+func StatStreamHandlerFactory(dq *deque.ValueDeque) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -41,6 +42,49 @@ func StreamHandlerFactory(dq *deque.ValueDeque) http.HandlerFunc {
 					resp.MaxValue = nil
 				}
 				payload, err := json.Marshal(resp)
+				if err != nil {
+					http.Error(w, "Error encoding response", http.StatusInternalServerError)
+					return
+				}
+
+				if _, err := w.Write([]byte("data: ")); err != nil {
+					return
+				}
+				if _, err := w.Write(payload); err != nil {
+					return
+				}
+				if _, err := w.Write([]byte("\n\n")); err != nil {
+					return
+				}
+				flusher.Flush()
+			}
+		}
+	}
+}
+
+func DataStreamHandlerFactory(dataChan chan value.Message) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("X-Accel-Buffering", "no")
+
+		type response struct {
+			Value float64 `json:"value"`
+		}
+
+		for {
+			select {
+			case <-r.Context().Done():
+				return // client disconnect
+			case msg := <-dataChan:
+				payload, err := json.Marshal(response{Value: msg.Value})
 				if err != nil {
 					http.Error(w, "Error encoding response", http.StatusInternalServerError)
 					return

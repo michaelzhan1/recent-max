@@ -4,7 +4,7 @@ export default function Stats() {
   const [maxValue, setMaxValue] = useState<number | null>(null);
 
   useEffect(() => {
-    const evtSource = new EventSource("http://localhost:8080/stream");
+    const evtSource = new EventSource("http://localhost:8080/stream/stats");
 
     evtSource.onmessage = (event) => {
       const data = JSON.parse(event.data) as { maxValue: number };
