@@ -75,16 +75,12 @@ func DataStreamHandlerFactory(dataChan chan value.Message) http.HandlerFunc {
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("X-Accel-Buffering", "no")
 
-		type response struct {
-			Value float64 `json:"value"`
-		}
-
 		for {
 			select {
 			case <-r.Context().Done():
 				return // client disconnect
 			case msg := <-dataChan:
-				payload, err := json.Marshal(response{Value: msg.Value})
+				payload, err := json.Marshal(msg)
 				if err != nil {
 					http.Error(w, "Error encoding response", http.StatusInternalServerError)
 					return

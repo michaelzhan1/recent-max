@@ -12,6 +12,9 @@ server:
 frontend:
 	cd web && npm run dev
 
+.PHONY: rebuild
+	docker compose up --build
+
 .PHONY: all
 all:
-	docker compose up --build
+	docker compose up
