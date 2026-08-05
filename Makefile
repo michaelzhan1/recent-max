@@ -1,20 +1,13 @@
-default: all
-
-.PHONY: generator
-generator:
-	docker compose up --build generator
+default: server
 
 .PHONY: server
 server:
-	docker compose up --build server
+	docker compose up server
+
+.PHONY: build
+build:
+	docker compose up --build
 
 .PHONY: frontend
 frontend:
 	cd web && npm run dev
-
-.PHONY: rebuild
-	docker compose up --build
-
-.PHONY: all
-all:
-	docker compose up

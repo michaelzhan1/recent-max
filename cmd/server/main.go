@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,19 +11,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/michaelzhan1/recent-max/internal/connection"
 	"github.com/michaelzhan1/recent-max/internal/handler"
 	"github.com/michaelzhan1/recent-max/internal/middleware"
 	"github.com/michaelzhan1/recent-max/internal/value"
-	"github.com/michaelzhan1/recent-max/internal/value/deque"
+	"github.com/michaelzhan1/recent-max/internal/value/generate"
 )
 
 // runHTTPServer handles incoming messages over HTTP
-func runHTTPServer(ctx context.Context, dq *deque.ValueDeque, dataChan chan value.Message) {
+func runHTTPServer(ctx context.Context, dataChan chan value.Message) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/stream/data", handler.DataStreamHandlerFactory(dataChan))
-	mux.HandleFunc("/stream/stats", handler.StatStreamHandlerFactory(dq))
 	corsMux := middleware.EnableCORS(mux)
 
 	server := &http.Server{
@@ -52,36 +48,29 @@ func runHTTPServer(ctx context.Context, dq *deque.ValueDeque, dataChan chan valu
 	}
 }
 
-// runTCPServer handles handles incoming messages over TCP
-func runTCPServer(ctx context.Context, ln *connection.TCPListener, dq *deque.ValueDeque, dataChan chan value.Message) {
-	conn, err := ln.Accept()
-	if err != nil {
-		log.Println("Error accepting connection:", err)
-		return
-	}
-	defer conn.Close()
+func runGenerator(ctx context.Context, gen *generate.Generator, dataChan chan value.Message) {
+	ticker := time.NewTicker(100 * time.Millisecond) // generate data every 100ms
+	defer ticker.Stop()
 
-	go func() {
-		<-ctx.Done()
-		conn.Close() // conn.Close will help dec.Decode close properly
-	}()
-
-	err = ln.Handle(conn, func(dec *json.Decoder) error {
-		for {
-			var msg value.Message
-			if err := dec.Decode(&msg); err != nil {
-				return err
-			}
-			dataChan <- msg
-			dq.Push(msg)
-		}
-	})
-	if err != nil {
-		if err == io.EOF {
-			log.Println("Connection closed by client.")
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Stopping generator...")
 			return
+		case <-ticker.C:
+			newValue := gen.Step()
+			msg := value.Message{
+				Timestamp: time.Now(),
+				Value:     newValue,
+			}
+
+			select {
+			case <-ctx.Done():
+				log.Println("Stopping generator...")
+				return
+			case dataChan <- msg:
+			}
 		}
-		log.Println("Error handling connection:", err)
 	}
 }
 
@@ -89,22 +78,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// open TCP listener on 8081 for the generator to send data in
-	ln, err := connection.NewTCPListener("8081")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer ln.Close()
-
 	// graceful shutdown
 	go func() {
 		<-ctx.Done()
 		log.Println("Shutting down server...")
-		ln.Close() // break any waiting Accept()
 	}()
 
-	// deque logic
-	dq := deque.NewValueDeque(5 * time.Second)
+	// generator
+	gen := generate.NewGenerator(100.0, 0.05, 0.5) // initial value, mu, sigma
 
 	// data channel logic
 	dataChan := make(chan value.Message)
@@ -112,15 +93,13 @@ func main() {
 	// waitgroups for servers
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		log.Println("TCP server is running on port 8081.")
-		runTCPServer(ctx, ln, dq, dataChan)
+		log.Println("Generator is running.")
+		runGenerator(ctx, gen, dataChan)
 	})
 	wg.Go(func() {
 		log.Println("HTTP server is running on port 8080.")
-		runHTTPServer(ctx, dq, dataChan)
+		runHTTPServer(ctx, dataChan)
 	})
-
-	<-ctx.Done()
 
 	wg.Wait()
 	log.Println("Server stopped.")
