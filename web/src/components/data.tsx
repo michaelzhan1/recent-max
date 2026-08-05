@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import type { DataPoint } from "../types/types";
-import { Line, LineChart, XAxis, YAxis } from "recharts";
+import { Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
 import { formatTimestamp } from "../utils/utils";
 
 export default function Data() {
   const [dataArr, setDataArr] = useState<DataPoint[]>([]);
+  const [maxValue, setMaxValue] = useState<number | null>(null);
 
+  // data stream
   useEffect(() => {
-    const evtSource = new EventSource("http://localhost:8080/stream/data");
+    const dataEvtSource = new EventSource("http://localhost:8080/stream/data");
+    const maxEvtSource = new EventSource("http://localhost:8080/stream/stats");
 
-    evtSource.onmessage = (event) => {
+    dataEvtSource.onmessage = (event) => {
       const data = JSON.parse(event.data) as {
         value: number;
         timestamp: string;
@@ -25,14 +28,24 @@ export default function Data() {
       ]);
     };
 
-    evtSource.onerror = () => {
-      evtSource.close();
+    dataEvtSource.onerror = () => {
+      dataEvtSource.close();
+    };
+
+    maxEvtSource.onmessage = (event) => {
+      const data = JSON.parse(event.data) as { maxValue: number | null };
+      setMaxValue(data.maxValue);
+    };
+
+    maxEvtSource.onerror = () => {
+      maxEvtSource.close();
     };
 
     return () => {
-      evtSource.close();
+      dataEvtSource.close();
+      maxEvtSource.close();
     };
-  }, [dataArr]);
+  }, []);
 
   // make x axis ticks the whole seconds within dataArr
   const firstTime = dataArr.length > 0 ? dataArr[0].timestamp.getTime() : 0;
@@ -47,11 +60,12 @@ export default function Data() {
   return (
     <div>
       <h1>Data</h1>
+      <div>{maxValue}</div>
       <LineChart
         data={dataArr}
         width={600}
         height={300}
-        margin={{ top: 20, right: 20, bottom: 25, left: 20 }}
+        margin={{ top: 20, right: 80, bottom: 25, left: 20 }}
       >
         <XAxis
           dataKey="timestamp"
@@ -80,6 +94,18 @@ export default function Data() {
           isAnimationActive={false}
           animationDuration={0}
         />
+        {maxValue !== null && (
+          <ReferenceLine
+            y={maxValue}
+            stroke="red"
+            strokeDasharray="3 3"
+            label={{
+              value: Math.round(maxValue * 100) / 100,
+              position: "right",
+              fill: "red",
+            }}
+          />
+        )}
       </LineChart>
     </div>
   );
