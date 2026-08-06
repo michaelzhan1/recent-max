@@ -18,10 +18,12 @@ import (
 )
 
 // runHTTPServer handles incoming messages over HTTP
-func runHTTPServer(ctx context.Context, dataChan chan value.Message) {
+func runHTTPServer(ctx context.Context, dataChan chan value.Message, pauseChan chan bool) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/stream/data", handler.DataStreamHandlerFactory(dataChan))
+	mux.HandleFunc("/pause", handler.PauseHandlerFactory(pauseChan))
+	mux.HandleFunc("/resume", handler.ResumeHandlerFactory(pauseChan))
 	corsMux := middleware.EnableCORS(mux)
 
 	server := &http.Server{
@@ -48,16 +50,26 @@ func runHTTPServer(ctx context.Context, dataChan chan value.Message) {
 	}
 }
 
-func runGenerator(ctx context.Context, gen *generate.Generator, dataChan chan value.Message) {
+func runGenerator(ctx context.Context, gen *generate.Generator, dataChan chan value.Message, pauseChan chan bool) {
 	ticker := time.NewTicker(100 * time.Millisecond) // generate data every 100ms
 	defer ticker.Stop()
+
+	paused := false
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Stopping generator...")
 			return
+		case p := <-pauseChan:
+			paused = p
+			log.Printf("Generator pause state: %v\n", paused)
+
 		case <-ticker.C:
+			if paused {
+				continue
+			}
+
 			newValue := gen.Step()
 			msg := value.Message{
 				Timestamp: time.Now(),
@@ -89,16 +101,17 @@ func main() {
 
 	// data channel logic
 	dataChan := make(chan value.Message)
+	pauseChan := make(chan bool)
 
 	// waitgroups for servers
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		log.Println("Generator is running.")
-		runGenerator(ctx, gen, dataChan)
+		runGenerator(ctx, gen, dataChan, pauseChan)
 	})
 	wg.Go(func() {
 		log.Println("HTTP server is running on port 8080.")
-		runHTTPServer(ctx, dataChan)
+		runHTTPServer(ctx, dataChan, pauseChan)
 	})
 
 	wg.Wait()
