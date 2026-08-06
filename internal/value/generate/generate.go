@@ -28,7 +28,3 @@ func (g *Generator) Step() float64 {
 	g.value *= math.Exp(exp)
 	return g.value
 }
-
-func (g *Generator) Value() float64 {
-	return g.value
-}
