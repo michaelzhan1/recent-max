@@ -1,49 +1,64 @@
 import { useEffect, useState } from "react";
-import type { DataPoint } from "../types/types";
 import { Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
+import type { DataPoint, Stat } from "../types/types";
+import { MonotonicDeque } from "../utils/deque";
 import { formatTimestamp } from "../utils/utils";
 
 export default function Data() {
   const [dataArr, setDataArr] = useState<DataPoint[]>([]);
-  const [maxValue, setMaxValue] = useState<number | null>(null);
+  const [stats, setStats] = useState<Stat>({
+    maxValue: null,
+    minValue: null,
+    avg: null,
+  });
 
   // data stream
   useEffect(() => {
+    const maxDeque = new MonotonicDeque("max");
+    const minDeque = new MonotonicDeque("min");
+
     const dataEvtSource = new EventSource("http://localhost:8080/stream/data");
-    const maxEvtSource = new EventSource("http://localhost:8080/stream/stats");
 
     dataEvtSource.onmessage = (event) => {
       const data = JSON.parse(event.data) as {
         value: number;
         timestamp: string;
       };
+      const dataPoint: DataPoint = {
+        value: data.value,
+        timestamp: new Date(data.timestamp),
+      };
 
-      const now = Date.now();
-      setDataArr((prev) => [
-        ...prev.filter((point) => now - point.timestamp.getTime() <= 5000),
-        {
-          value: data.value,
-          timestamp: new Date(data.timestamp),
-        },
-      ]);
+      maxDeque.push(dataPoint);
+      minDeque.push(dataPoint);
+
+      const currentTime = dataPoint.timestamp.getTime();
+      setDataArr((prev) => {
+        let i = 0;
+        while (i < prev.length && currentTime - prev[i].timestamp.getTime() > 5000) {
+          i++;
+        }
+        const newArr = [...prev.slice(i), dataPoint];
+
+        const sum = newArr.reduce((acc, dp) => acc + dp.value, 0);
+        const avg = newArr.length > 0 ? sum / newArr.length : null;
+
+        setStats({
+          maxValue: maxDeque.peek()?.value ?? null,
+          minValue: minDeque.peek()?.value ?? null,
+          avg: avg,
+        });
+
+        return newArr;
+      });
     };
 
     dataEvtSource.onerror = () => {
       dataEvtSource.close();
     };
 
-    maxEvtSource.onmessage = (event) => {
-      const data = JSON.parse(event.data) as { maxValue: number | null };
-      setMaxValue(data.maxValue);
-    };
-
-    maxEvtSource.onerror = () => {
-      maxEvtSource.close();
-    };
-
     return () => {
       dataEvtSource.close();
-      maxEvtSource.close();
     };
   }, []);
 
@@ -60,7 +75,6 @@ export default function Data() {
   return (
     <div>
       <h1>Data</h1>
-      <div>{maxValue}</div>
       <LineChart
         data={dataArr}
         width={600}
@@ -94,15 +108,39 @@ export default function Data() {
           isAnimationActive={false}
           animationDuration={0}
         />
-        {maxValue !== null && (
+        {stats.maxValue !== null && (
           <ReferenceLine
-            y={maxValue}
+            y={stats.maxValue}
             stroke="red"
             strokeDasharray="3 3"
             label={{
-              value: Math.round(maxValue * 100) / 100,
+              value: `Max: ${Math.round(stats.maxValue * 100) / 100}`,
               position: "right",
               fill: "red",
+            }}
+          />
+        )}
+        {stats.minValue !== null && (
+          <ReferenceLine
+            y={stats.minValue}
+            stroke="blue"
+            strokeDasharray="3 3"
+            label={{
+              value: `Min: ${Math.round(stats.minValue * 100) / 100}`,
+              position: "right",
+              fill: "blue",
+            }}
+          />
+        )}
+        {stats.avg !== null && (
+          <ReferenceLine
+            y={stats.avg}
+            stroke="green"
+            strokeDasharray="3 3"
+            label={{
+              value: `Avg: ${Math.round(stats.avg * 100) / 100}`,
+              position: "right",
+              fill: "green",
             }}
           />
         )}
