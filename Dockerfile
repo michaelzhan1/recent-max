@@ -8,7 +8,7 @@ RUN go mod download
 FROM builder AS server-builder
 
 RUN CGO_ENABLED=0 GOOS=linux \
-    go build -o /out/server ./cmd/server
+    go build -o /out/server ./cmd
 
 FROM debian:bookworm-slim AS server
 
