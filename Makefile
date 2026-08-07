@@ -1,12 +1,19 @@
-default: server
+default: all
 
-.PHONY: server
-server:
-	docker compose up server
+SERVER:=./bin/server
+SERVER_SRC:=$(shell find cmd internal -type f -name '*.go') go.mod go.sum
 
-.PHONY: build
-build:
-	docker compose up --build
+$(SERVER): $(SERVER_SRC)
+	@mkdir -p bin
+	go build -o $(SERVER) ./cmd
+
+.PHONY: all
+all: $(SERVER)
+	./bin/server
+
+.PHONY: clean
+clean:
+	rm -rf bin
 
 .PHONY: frontend
 frontend:

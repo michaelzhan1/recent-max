@@ -39,7 +39,7 @@ func runHTTPServer(ctx context.Context, dataChan chan value.Message, pauseChan c
 		defer cancel()
 
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			log.Println("Error shutting down HTTP server:", err)
+			log.Println("Error shuttinsg down HTTP server:", err)
 		}
 	}()
 
