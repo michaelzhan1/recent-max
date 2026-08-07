@@ -18,12 +18,13 @@ import (
 )
 
 // runHTTPServer handles incoming messages over HTTP
-func runHTTPServer(ctx context.Context, dataChan chan value.Message, pauseChan chan bool) {
+func runHTTPServer(ctx context.Context, gen *generate.Generator, dataChan chan value.Message, pauseChan chan bool) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/stream/data", handler.DataStreamHandlerFactory(dataChan))
 	mux.HandleFunc("/pause", handler.PauseHandlerFactory(pauseChan))
 	mux.HandleFunc("/resume", handler.ResumeHandlerFactory(pauseChan))
+	mux.HandleFunc("/reset", handler.ResetGeneratorHandler(gen))
 	corsMux := middleware.EnableCORS(mux)
 
 	server := &http.Server{
@@ -111,7 +112,7 @@ func main() {
 	})
 	wg.Go(func() {
 		log.Println("HTTP server is running on port 8080.")
-		runHTTPServer(ctx, dataChan, pauseChan)
+		runHTTPServer(ctx, gen, dataChan, pauseChan)
 	})
 
 	wg.Wait()

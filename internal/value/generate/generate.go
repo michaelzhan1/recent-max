@@ -28,3 +28,9 @@ func (g *Generator) Step() float64 {
 	g.value *= math.Exp(exp)
 	return g.value
 }
+
+func (g *Generator) Reset(value float64, mu float64, sigma float64) {
+	g.value = value
+	g.mu = mu
+	g.sigma = sigma
+}

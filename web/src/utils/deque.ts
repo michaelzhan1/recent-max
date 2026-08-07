@@ -37,4 +37,8 @@ export class MonotonicDeque {
       return undefined;
     }
   }
+
+  clear(): void {
+    this.arr = [];
+  }
 }

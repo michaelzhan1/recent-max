@@ -1,17 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
 import type { DataPoint, Stat } from "../types/types";
 import { MonotonicDeque } from "../utils/deque";
 import { formatTimestamp } from "../utils/utils";
 
-export default function Data() {
-  const [dataArr, setDataArr] = useState<DataPoint[]>([]);
-  const [stats, setStats] = useState<Stat>({
-    maxValue: null,
-    minValue: null,
-    avg: null,
-  });
+interface DataProps {
+  dataArr: DataPoint[];
+  setDataArr: React.Dispatch<React.SetStateAction<DataPoint[]>>;
+  stats: Stat;
+  setStats: React.Dispatch<React.SetStateAction<Stat>>;
+}
 
+export default function Data({ dataArr, setDataArr, stats, setStats }: DataProps) {
   // data stream
   useEffect(() => {
     const maxDeque = new MonotonicDeque("max");
@@ -60,7 +60,7 @@ export default function Data() {
     return () => {
       dataEvtSource.close();
     };
-  }, []);
+  }, [setDataArr, setStats]);
 
   // make x axis ticks the whole seconds within dataArr
   const firstTime = dataArr.length > 0 ? dataArr[0].timestamp.getTime() : 0;
