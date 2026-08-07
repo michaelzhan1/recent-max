@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useContext, useEffect } from "react";
 import { Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
+import { DequeContext } from "../context/app-context";
 import type { DataPoint, Stat } from "../types/types";
-import { MonotonicDeque } from "../utils/deque";
 import { formatTimestamp } from "../utils/utils";
 
 interface DataProps {
@@ -12,11 +12,10 @@ interface DataProps {
 }
 
 export default function Data({ dataArr, setDataArr, stats, setStats }: DataProps) {
+  const { maxDeque, minDeque } = useContext(DequeContext) ?? {};
+
   // data stream
   useEffect(() => {
-    const maxDeque = new MonotonicDeque("max");
-    const minDeque = new MonotonicDeque("min");
-
     const dataEvtSource = new EventSource("http://localhost:8080/stream/data");
 
     dataEvtSource.onmessage = (event) => {
@@ -29,8 +28,8 @@ export default function Data({ dataArr, setDataArr, stats, setStats }: DataProps
         timestamp: new Date(data.timestamp),
       };
 
-      maxDeque.push(dataPoint);
-      minDeque.push(dataPoint);
+      maxDeque?.push(dataPoint);
+      minDeque?.push(dataPoint);
 
       const currentTime = dataPoint.timestamp.getTime();
       setDataArr((prev) => {
@@ -44,8 +43,8 @@ export default function Data({ dataArr, setDataArr, stats, setStats }: DataProps
         const avg = newArr.length > 0 ? sum / newArr.length : null;
 
         setStats({
-          maxValue: maxDeque.peek()?.value ?? null,
-          minValue: minDeque.peek()?.value ?? null,
+          maxValue: maxDeque?.peek()?.value ?? null,
+          minValue: minDeque?.peek()?.value ?? null,
           avg: avg,
         });
 
@@ -60,7 +59,7 @@ export default function Data({ dataArr, setDataArr, stats, setStats }: DataProps
     return () => {
       dataEvtSource.close();
     };
-  }, [setDataArr, setStats]);
+  }, [setDataArr, setStats, maxDeque, minDeque]);
 
   // make x axis ticks the whole seconds within dataArr
   const firstTime = dataArr.length > 0 ? dataArr[0].timestamp.getTime() : 0;

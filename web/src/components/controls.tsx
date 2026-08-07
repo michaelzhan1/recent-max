@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import type { DataPoint, Stat } from "../types/types";
+import { DequeContext } from "../context/app-context";
 
 interface ControlsProps {
   setDataArr: React.Dispatch<React.SetStateAction<DataPoint[]>>;
@@ -15,6 +16,8 @@ async function resume() {
 }
 
 export function Controls({ setDataArr, setStats }: ControlsProps) {
+  const { maxDeque, minDeque } = useContext(DequeContext) ?? {};
+
   const [paused, setPaused] = useState<boolean>(false);
 
   const handleTogglePause = () => {
@@ -50,6 +53,9 @@ export function Controls({ setDataArr, setStats }: ControlsProps) {
       minValue: null,
       avg: null,
     });
+
+    maxDeque?.clear();
+    minDeque?.clear();
   };
 
   const handleFormSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
